@@ -66,13 +66,14 @@ def merge_and_extend_orbits(
 
     # Drop duplicate orbits (orbits with identical state vectors)
     num_orbits = len(orbits_iter)
-    orbits_iter, orbit_members_iter = drop_duplicate_orbits(
-        orbits_iter, orbit_members_iter
-    )
-    logger.info(
-        f"Dropped {num_orbits - len(orbits_iter)} state vector duplicate orbits."
-    )
-    num_orbits = len(orbits_iter)
+    if orbit_members_iter is not None:
+        orbits_iter, orbit_members_iter = drop_duplicate_orbits(
+            orbits_iter, orbit_members_iter
+        )
+        logger.info(
+            f"Dropped {num_orbits - len(orbits_iter)} state vector duplicate orbits."
+        )
+        num_orbits = len(orbits_iter)
 
     iterations = 0
     while len(orbits_iter) > 0:
