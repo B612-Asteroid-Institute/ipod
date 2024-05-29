@@ -10,7 +10,8 @@ import quivr as qv
 import ray
 from adam_core.orbit_determination import OrbitDeterminationObservations
 from adam_core.orbits import Orbits
-from adam_core.propagator import PYOORB, Propagator
+from adam_core.propagator import Propagator
+from adam_core.propagator.adam_pyoorb import PYOORBPropagator as PYOORB
 from adam_core.propagator.utils import _iterate_chunk_indices, _iterate_chunks
 from adam_core.ray_cluster import initialize_use_ray
 from precovery.precovery_db import PrecoveryDatabase
@@ -19,7 +20,7 @@ from thor.orbit_determination import FittedOrbitMembers, FittedOrbits
 
 from .ipod import OrbitOutliers, PrecoveryCandidates, SearchSummary, ipod
 
-logger = logging.getLogger("ipod")
+logger = logging.getLogger(__name__)
 
 
 def ipod_worker(
@@ -27,12 +28,13 @@ def ipod_worker(
     orbits: FittedOrbits,
     orbit_members: Optional[FittedOrbitMembers] = None,
     observations: Optional[Observations] = None,
+    min_tolerance: float = 1.0,
     max_tolerance: float = 10.0,
+    tolerance_step: float = 5.0,
     delta_time: float = 15.0,
     rchi2_threshold: float = 3.0,
     outlier_chi2: float = 9.0,
     reconsider_chi2: float = 8.0,
-    max_iter: int = 10,
     min_mjd: Optional[float] = None,
     max_mjd: Optional[float] = None,
     astrometric_errors: Optional[dict[str, Tuple[float, float]]] = None,
@@ -98,12 +100,13 @@ def ipod_worker(
             ipod_orbit, ipod_orbit_members, ipod_candidates_i, summary = ipod(
                 orbit,
                 orbit_observations=orbit_observations,
+                min_tolerance=min_tolerance,
                 max_tolerance=max_tolerance,
+                tolerance_step=tolerance_step,
                 delta_time=delta_time,
                 rchi2_threshold=rchi2_threshold,
                 outlier_chi2=outlier_chi2,
                 reconsider_chi2=reconsider_chi2,
-                max_iter=max_iter,
                 min_mjd=min_mjd,
                 max_mjd=max_mjd,
                 astrometric_errors=astrometric_errors,
@@ -143,12 +146,13 @@ def ipod_worker_remote(
     orbits: Union[Orbits, FittedOrbits],
     orbit_members: Optional[FittedOrbitMembers] = None,
     observations: Optional[Observations] = None,
+    min_tolerance: float = 1.0,
     max_tolerance: float = 10.0,
+    tolerance_step: float = 5.0,
     delta_time: float = 15.0,
     rchi2_threshold: float = 3.0,
     outlier_chi2: float = 9.0,
     reconsider_chi2: float = 8.0,
-    max_iter: int = 10,
     min_mjd: Optional[float] = None,
     max_mjd: Optional[float] = None,
     astrometric_errors: Optional[dict[str, Tuple[float, float]]] = None,
@@ -177,12 +181,13 @@ def ipod_worker_remote(
         orbits,
         orbit_members=orbit_members,
         observations=observations,
+        min_tolerance=min_tolerance,
         max_tolerance=max_tolerance,
+        tolerance_step=tolerance_step,
         delta_time=delta_time,
         rchi2_threshold=rchi2_threshold,
         outlier_chi2=outlier_chi2,
         reconsider_chi2=reconsider_chi2,
-        max_iter=max_iter,
         min_mjd=min_mjd,
         max_mjd=max_mjd,
         astrometric_errors=astrometric_errors,
@@ -205,12 +210,13 @@ def iterative_precovery_and_differential_correction(
     orbits: Union[FittedOrbits, ray.ObjectRef],
     orbit_members: Optional[Union[FittedOrbitMembers, ray.ObjectRef]] = None,
     observations: Optional[Union[Observations, ray.ObjectRef]] = None,
+    min_tolerance: float = 1.0,
     max_tolerance: float = 10.0,
+    tolerance_step: float = 5.0,
     delta_time: float = 15.0,
     rchi2_threshold: float = 3.0,
     outlier_chi2: float = 9.0,
     reconsider_chi2: float = 8.0,
-    max_iter: int = 10,
     min_mjd: Optional[float] = None,
     max_mjd: Optional[float] = None,
     astrometric_errors: Optional[dict[str, Tuple[float, float]]] = None,
@@ -333,12 +339,13 @@ def iterative_precovery_and_differential_correction(
                     orbits_ref,
                     orbit_members_ref,
                     observations_ref,
+                    min_tolerance=min_tolerance,
                     max_tolerance=max_tolerance,
+                    tolerance_step=tolerance_step,
                     delta_time=delta_time,
                     rchi2_threshold=rchi2_threshold,
                     outlier_chi2=outlier_chi2,
                     reconsider_chi2=reconsider_chi2,
-                    max_iter=max_iter,
                     min_mjd=min_mjd,
                     max_mjd=max_mjd,
                     astrometric_errors=astrometric_errors,
@@ -426,12 +433,13 @@ def iterative_precovery_and_differential_correction(
                 orbits,
                 orbit_members,
                 observations,
+                min_tolerance=min_tolerance,
                 max_tolerance=max_tolerance,
+                tolerance_step=tolerance_step,
                 delta_time=delta_time,
                 rchi2_threshold=rchi2_threshold,
                 outlier_chi2=outlier_chi2,
                 reconsider_chi2=reconsider_chi2,
-                max_iter=max_iter,
                 min_mjd=min_mjd,
                 max_mjd=max_mjd,
                 astrometric_errors=astrometric_errors,

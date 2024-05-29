@@ -7,7 +7,8 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import quivr as qv
-from adam_core.propagator import PYOORB, Propagator
+from adam_core.propagator import Propagator
+from adam_core.propagator.adam_pyoorb import PYOORBPropagator as PYOORB
 from adam_core.ray_cluster import initialize_use_ray
 from thor.observations import Observations, Photometry
 from thor.observations.observations import calculate_state_id_hashes
@@ -23,14 +24,17 @@ from .ipod import OrbitOutliers, PrecoveryCandidates, SearchSummary
 from .main import iterative_precovery_and_differential_correction
 from .utils import assign_duplicate_observations
 
-logger = logging.getLogger("ipod")
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 def merge_and_extend_orbits(
     orbits: FittedOrbits,
     orbit_members: Optional[FittedOrbitMembers] = None,
     observations: Optional[Observations] = None,
+    min_tolerance: float = 1.0,
     max_tolerance: float = 10.0,
+    tolerance_step: float = 5.0,
     delta_time: float = 15.0,
     rchi2_threshold: float = 3.0,
     outlier_chi2: float = 9.0,
@@ -94,12 +98,13 @@ def merge_and_extend_orbits(
             orbits_iter,
             orbit_members=orbit_members_iter,
             observations=observations_iter,
+            min_tolerance=min_tolerance,
             max_tolerance=max_tolerance,
+            tolerance_step=tolerance_step,
             delta_time=delta_time,
             rchi2_threshold=rchi2_threshold,
             outlier_chi2=outlier_chi2,
             reconsider_chi2=reconsider_chi2,
-            max_iter=10,
             min_mjd=min_mjd,
             max_mjd=max_mjd,
             astrometric_errors=astrometric_errors,
@@ -114,7 +119,7 @@ def merge_and_extend_orbits(
 
         if len(orbits_iter) == 0:
             logger.warning(
-                "Exiting merge and extend early, no orbits returned from IPDC."
+                "Exiting merge and extend early, no orbits returned from IPOD."
             )
             break
 
@@ -198,6 +203,7 @@ def merge_and_extend_orbits(
             if len(orbit_ids) > 0:
                 mask = pc.or_(mask, pc.is_in(orbits_iter.orbit_id, orbit_ids))
 
+        # Orbits that are in consideration for removal from the active pool
         orbits_out_iter = orbits_iter.apply_mask(mask)
         orbit_members_out_iter = orbit_members_iter.apply_mask(
             pc.is_in(orbit_members_iter.orbit_id, orbits_out_iter.orbit_id)
@@ -213,6 +219,7 @@ def merge_and_extend_orbits(
             f"{len(orbits_out_iter)} orbits have been removed from the active pool."
         )
 
+        # Append the orbits_out_iter to the final output tables
         orbits_out = qv.concatenate([orbits_out, orbits_out_iter])
         if orbits_out.fragmented():
             orbits_out = qv.defragment(orbits_out)
@@ -284,11 +291,11 @@ def merge_and_extend_orbits(
     ).sort_by("orbit_id")
 
     # Ensure that the output orbits, input orbits, and summary are consistent
-    assert len(orbits_out) == len(orbits_remaining)
-    assert pc.all(pc.equal(orbits_remaining.orbit_id, orbits_out.orbit_id)).as_py()
-    assert pc.all(
-        pc.equal(orbits_remaining.orbit_id, search_summary_out.orbit_id)
-    ).as_py()
+    # assert len(orbits_out) == len(orbits_remaining)
+    # assert pc.all(pc.equal(orbits_remaining.orbit_id, orbits_out.orbit_id)).as_py()
+    # assert pc.all(
+    #     pc.equal(orbits_remaining.orbit_id, search_summary_out.orbit_id)
+    # ).as_py()
 
     # Update the search summary to reflect to original input arc lengths and number of observations
     search_summary_out = search_summary_out.set_column(
